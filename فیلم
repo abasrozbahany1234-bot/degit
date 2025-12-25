@@ -1,0 +1,38 @@
+// server.js
+import express from "express";
+import AWS from "aws-sdk";
+import jwt from "jsonwebtoken";
+
+const app = express();
+app.use(express.json());
+
+// تنظیم S3
+const s3 = new AWS.S3({
+  region: "us-east-1",
+  accessKeyId: process.env.AWS_KEY,
+  secretAccessKey: process.env.AWS_SECRET,
+});
+
+// ایجاد Signed URL برای آپلود
+app.post("/upload", (req, res) => {
+  const { filename, filetype } = req.body;
+
+  const params = {
+    Bucket: process.env.S3_BUCKET,
+    Key: filename,
+    Expires: 60, // لینک یک دقیقه معتبر است
+    ContentType: filetype,
+  };
+
+  const url = s3.getSignedUrl("putObject", params);
+  res.json({ uploadUrl: url });
+});
+
+// دریافت لیست ویدیوها
+app.get("/videos", async (req, res) => {
+  const params = { Bucket: process.env.S3_BUCKET };
+  const data = await s3.listObjectsV2(params).promise();
+  res.json(data.Contents.map(obj => obj.Key));
+});
+
+app.listen(3000, () => console.log("Server running on port 3000"));
